@@ -1,0 +1,33 @@
+INFO:modules.pdf_processor:PDFProcessor: 126991.pdf, pages: 7
+INFO:modules.pdf_processor:Converting PDF (DPI=300)...
+INFO:modules.pdf_processor:Converted (PyMuPDF): 7 pages
+=== DEBUG TEST ===
+Python: 3.10.11 (tags/v3.10.11:7d4cc5a, Apr  5 2023, 00:38:17) [MSC v.1929 64 bit (AMD64)]
+1. Import pdf_processor...
+   OK
+2. Convert PDF...
+   7 pages
+3. Import OCR...
+   OK
+4. Init OCR...
+   OK
+5. Import numpy...
+   OK
+6. OCR page 4 (should have table)...
+   Image shape: (3508, 2481, 3)
+   Items: 70
+     [0.96] гст
+     [0.75] 10605.-w94
+     [0.98] Рисунок
+     [0.99] пр
+     [0.78] иmep
+7. Import table_parser...
+   OK
+   Page text length: 409
+   First 200 chars: гст 10605.-w94
+Рисунок
+пр иmep yc Io Bнo Io о6 оsHачeHия тайки диаметром резьы о MM.
+крупным шагом резьоы плем допуска 6H, з материала групы 05. с цинковым покрытием
+толшиной O MKm. хрома ированным
+ай
+=== DONE ===

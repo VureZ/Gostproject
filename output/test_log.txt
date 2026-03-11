@@ -1,0 +1,11 @@
+2026-03-08 16:50:17,703 [INFO] __main__: ============================================================
+2026-03-08 16:50:17,703 [INFO] __main__: GOST OCR Processor - Etap 1: Analiz PDF
+2026-03-08 16:50:17,703 [INFO] __main__: File: data\126991.pdf
+2026-03-08 16:50:17,703 [INFO] __main__: ============================================================
+2026-03-08 16:50:17,703 [INFO] __main__: [Shag 1] PDF -> images...
+2026-03-08 16:50:17,809 [INFO] modules.pdf_processor: PDFProcessor: 126991.pdf, pages: 7
+2026-03-08 16:50:17,809 [INFO] modules.pdf_processor: Converting PDF (DPI=300)...
+2026-03-08 16:50:18,301 [INFO] modules.pdf_processor: Converted (PyMuPDF): 7 pages
+2026-03-08 16:50:18,301 [INFO] __main__: Pages converted: 7
+2026-03-08 16:50:18,301 [INFO] __main__: [Shag 2] Init PaddleOCR...
+2026-03-08 16:50:36,469 [WARNING] modules.gost_analyzer: Раздел с обозначением не найден

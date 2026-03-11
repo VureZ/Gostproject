@@ -1,0 +1,47 @@
+============================================================
+GOST OCR Processor - Etap 1
+File: data\126991.pdf
+============================================================
+[Shag 1] PDF -> images...
+2026-03-08 17:03:26,175 [INFO] modules.pdf_processor: PDFProcessor: 126991.pdf, pages: 7
+2026-03-08 17:03:26,175 [INFO] modules.pdf_processor: Converting PDF (DPI=300)...
+2026-03-08 17:03:26,646 [INFO] modules.pdf_processor: Converted (PyMuPDF): 7 pages
+  Pages: 7
+[Shag 2] Init PaddleOCR...
+  OCR ready
+[Shag 3] OCR pages + tables...
+  Page 1/7... text=239ch, no tables
+  Page 2/7... text=1472ch, tables=2
+  Page 3/7... text=1321ch, tables=1
+  Page 4/7... text=409ch, no tables
+  Page 5/7... text=519ch, no tables
+  Page 6/7... text=243ch, no tables
+  Page 7/7... text=190ch, no tables
+[Shag 4] Analyze GOST...
+============================================================
+RESULTS:
+============================================================
+  GOST: 10605-94
+  Product: Gajka
+  Designation: м 36.05.019 г
+  Context: {'diameter': '36', 'pitch': '8', 'material_groups': ['05', '05'], 'coating': '019'}
+
+Tables found: 3
+  Table 1 (page 2):
+    Headers: ['', 'Азсрбайджанская', '', 'Pеспублика', 'Aзгосстандарт', '', '']
+    Row 1: ['Республика', '', 'Армения', '', 'Армгосстандарт', '', '']
+    Row 2: ['Респлика', '', 'еларусђ', '', 'елстандарч', '', '']
+    Row 3: ['Респблика', '', 'рузия', '', 'рузстандарт', '', '']
+    ... +6 more
+  Table 2 (page 2):
+    Headers: ['BЗAMEH', '', 'гст', '10603.', '', '', '', '', '', '', '', '', '']
+    Row 1: ['', 'пЕРЕИЭДАNИЕ', '', '', 'Сентябр', '2005', '', '', '', '', '', '', '']
+    Row 2: ['', '', '', '', '', '', 'O ИIIK', 'Издател', '', 'яьетво', '', 'стандартов', '']
+    Row 3: ['', '', '', '', '', '', '', '', 'с', '', 'Стандартинформ.', '', '2003']
+  Table 3 (page 3):
+    Headers: ['', '', '', 'Product', 'grade', 'Specifications', '', '', '', '']
+    Row 1: ['', '', '', '', '', '', 'дата', 'Bвдения', '$96--', '-01--01']
+    Row 2: ['I.', 'оласть', 'применния', '', '', '', '', '', '', '']
+
+Text saved: output\extracted_text.txt
+Etap 1 complete.

@@ -1,0 +1,21 @@
+# GOST OCR Processor - Dependencies
+# Install: pip install -r requirements.txt
+
+# OCR
+paddlepaddle==2.6.2
+paddleocr==2.7.3
+
+# PDF processing
+PyMuPDF>=1.23.0
+pdf2image>=1.16.0
+
+# Image processing
+Pillow>=10.0.0
+numpy>=1.26.0
+opencv-python>=4.8.0
+
+# Database
+pyodbc>=4.0.0
+
+# Data
+pandas>=2.0.0
