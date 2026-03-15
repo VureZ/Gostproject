@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+
+# Logs
+*.log
+app.log
+
+# Output (generated files)
+output/*.csv
+output/*.txt
+
+# OS
+Thumbs.db
+Desktop.ini

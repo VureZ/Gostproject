@@ -3,11 +3,24 @@
 """
 
 import os
+import sys
 
 # ==================== ПУТИ К ФАЙЛАМ ====================
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-POPPLER_PATH = os.path.join(BASE_DIR, 'poppler', 'poppler-25.12.0', 'Library', 'bin')
+# Определяем базовые директории
+# При запуске из PyInstaller EXE: ресурсы в sys._MEIPASS, данные рядом с EXE
+# При обычном запуске: всё в папке проекта
+if getattr(sys, 'frozen', False):
+    # PyInstaller EXE
+    BUNDLE_DIR = sys._MEIPASS  # встроенные ресурсы (poppler, modules)
+    BASE_DIR = os.path.dirname(sys.executable)  # папка с EXE (data, output)
+    POPPLER_PATH = os.path.join(BUNDLE_DIR, 'poppler')
+else:
+    # Обычный Python
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    BUNDLE_DIR = BASE_DIR
+    POPPLER_PATH = os.path.join(BASE_DIR, 'poppler', 'poppler-25.12.0', 'Library', 'bin')
+
 PDF_INPUT_DIR = os.path.join(BASE_DIR, 'data')
 OUTPUT_DIR = os.path.join(BASE_DIR, 'output')
 TEMPLATES_DIR = os.path.join(BASE_DIR, 'templates')
@@ -69,8 +82,6 @@ def get_driver_name():
     if _SQL_DRIVER_USED is None:
         get_connection_string()
     return _SQL_DRIVER_USED
-
-SQL_CONNECTION_STRING = None
 
 # ==================== НАСТРОЙКИ PADDLEOCR ====================
 

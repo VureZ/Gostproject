@@ -1,9 +1,8 @@
-# GOST OCR Processor - Dependencies
+# GOST Processor - Dependencies
 # Install: pip install -r requirements.txt
 
-# OCR
-paddlepaddle==2.6.2
-paddleocr==2.7.3
+# GUI
+customtkinter>=5.2.0
 
 # PDF processing
 PyMuPDF>=1.23.0
@@ -17,5 +16,9 @@ opencv-python>=4.8.0
 # Database
 pyodbc>=4.0.0
 
-# Data
-pandas>=2.0.0
+# OCR (optional - for scanned PDFs)
+paddlepaddle==2.6.2
+paddleocr==2.7.3
+
+# Build (optional - for EXE packaging)
+# pyinstaller>=6.0

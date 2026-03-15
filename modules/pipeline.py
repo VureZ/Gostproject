@@ -66,7 +66,9 @@ class GostPipeline:
         self.parameters = self._build_parameters()
         return self._write_to_sql()
 
-    def run(self, pdf_path: str, template: str = "",
+    def run(self, pdf_path: str,
+            template_coarse: str = "",
+            template_fine: str = "",
             material_groups: Optional[Dict] = None,
             steel_grades: Optional[Dict] = None,
             coatings: Optional[Dict] = None,
@@ -77,7 +79,8 @@ class GostPipeline:
 
         Args:
             pdf_path: путь к PDF файлу
-            template: шаблон обозначения (вводится пользователем)
+            template_coarse: шаблон для крупного шага
+            template_fine: шаблон для мелкого шага
             material_groups: группы материалов {"код": "carbon"|"stainless"}
             steel_grades: марки стали {"код_группы": ["марка1", ...]}
             coatings: покрытия {"код": "описание"}
@@ -110,6 +113,12 @@ class GostPipeline:
         print(f"  Групп материалов: {len(self.spec.material_groups)}")
         print(f"  Покрытий: {len(self.spec.coatings)}")
 
+        # Применяем шаблоны обозначений
+        if template_coarse:
+            self.spec.format_coarse = template_coarse
+        if template_fine:
+            self.spec.format_fine = template_fine
+
         # Шаг 3: Генерация всех комбинаций
         print(f"\n[3/4] Генерация обозначений...")
         gen = DesignationGenerator(self.spec)
@@ -127,25 +136,7 @@ class GostPipeline:
         self.parameters = self._build_parameters()
 
         # Шаг 4: Запись в SQL
-        print(f"\n[4/4] Запись в SQL Server...")
-        db = GostDatabase()
-        if not db.connect():
-            print("  ОШИБКА: не удалось подключиться к SQL Server!")
-            return (0, 0)
-        try:
-            dc = db.insert_designations(self.designations, clear_existing=True)
-            print(f"  Обозначений записано: {dc}")
-            pc = 0
-            if self.parameters:
-                pc = db.insert_parameters(self.parameters, clear_existing=True)
-                print(f"  Параметров записано: {pc}")
-            print(f"  ГОТОВО!")
-            return (dc, pc)
-        except Exception as e:
-            print(f"  Ошибка SQL: {e}")
-            return (0, 0)
-        finally:
-            db.disconnect()
+        return self._write_to_sql()
 
     def _build_spec(self, material_groups=None, steel_grades=None,
                     coatings=None, coating_thicknesses=None) -> GostSpec:
@@ -221,8 +212,8 @@ class GostPipeline:
             m_val = d.m_values.get(diameter)
             mass = d.mass_data.get(diameter)
 
-            # Строка для крупного шага
-            if coarse:
+            # Строка для крупного шага (или без шага если парсер не нашёл)
+            if coarse or not fine_list:
                 rows.append({
                     'GOST_Number': gost,
                     'ThreadDiameter': float(diameter),
@@ -337,8 +328,8 @@ class GostPipeline:
             if '=' in s:
                 k, v = s.split('=', 1)
                 groups[k.strip()] = v.strip()
-        if not groups:
-            groups = None
+        # Пустой dict = пользователь не ввёл групп (без материалов)
+        # None = использовать стандартный набор
 
         # Ввод марок стали
         print("\n  Марки стали (группа=марка1,марка2)")
@@ -351,12 +342,11 @@ class GostPipeline:
             if '=' in s:
                 k, v = s.split('=', 1)
                 grades[k.strip()] = [x.strip() for x in v.split(',') if x.strip()]
-        if not grades:
-            grades = None
 
         # Ввод покрытий
         print("\n  Покрытия (код=описание)")
         print("  Пример: 01=Цинковое")
+        print("  Пустая строка = без покрытий")
         coats = {}
         while True:
             s = input("    > ").strip()
@@ -365,12 +355,10 @@ class GostPipeline:
             if '=' in s:
                 k, v = s.split('=', 1)
                 coats[k.strip()] = v.strip()
-        if not coats:
-            coats = None
 
         # Толщины
-        thick_str = input("\n  Толщины покрытий через запятую (напр: 6,9,12): ").strip()
-        thick = [x.strip() for x in thick_str.split(',') if x.strip()] if thick_str else None
+        thick_str = input("\n  Толщины покрытий через запятую (напр: 6,9,12, пусто = без): ").strip()
+        thick = [x.strip() for x in thick_str.split(',') if x.strip()] if thick_str else []
 
         return groups, grades, coats, thick
 
@@ -397,6 +385,8 @@ class GostPipeline:
             if self.parameters:
                 pc = db.insert_parameters(self.parameters, clear_existing=True)
                 print(f"  Параметров записано: {pc}")
+            # Сохраняем CSV
+            self._save_csv()
             print(f"  ГОТОВО!")
             return (dc, pc)
         except Exception as e:
@@ -404,3 +394,20 @@ class GostPipeline:
             return (0, 0)
         finally:
             db.disconnect()
+
+    def _save_csv(self):
+        """Сохраняет обозначения в CSV-файл."""
+        if not self.designations or not self.spec:
+            return
+        from modules.config import OUTPUT_DIR
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        safe = self.spec.gost_number.replace(' ', '_').replace('-', '_')
+        path = os.path.join(OUTPUT_DIR, f'designations_{safe}.csv')
+        cols = ['GOST_Number', 'FullDesignation', 'ThreadSize',
+                'MaterialGroup', 'Coating', 'SteelGrade',
+                'ThreadDiameter', 'ThreadPitch']
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(";".join(cols) + "\n")
+            for d in self.designations:
+                f.write(";".join([str(d.get(c, '')) for c in cols]) + "\n")
+        print(f"  CSV: {path}")

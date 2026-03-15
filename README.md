@@ -1,2 +1,0 @@
-# Gostproject
-OCR project

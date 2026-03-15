@@ -39,6 +39,7 @@ class GostDatabase:
             self.conn = pyodbc.connect(conn_str)
             self.cursor = self.conn.cursor()
             logger.info("Connected OK")
+            self.ensure_tables()
             return True
         except pyodbc.Error as e:
             logger.error("Connection error: %s", str(e))
@@ -48,6 +49,51 @@ class GostDatabase:
         if self.conn:
             self.conn.close()
             logger.info("Disconnected")
+
+    def ensure_tables(self):
+        """Создаёт таблицы если их нет."""
+        if not self.conn:
+            return
+        try:
+            self.cursor.execute("""
+                IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'ProductDesignations')
+                CREATE TABLE ProductDesignations (
+                    ID INT IDENTITY(1,1) PRIMARY KEY,
+                    GOST_Number NVARCHAR(50),
+                    FullDesignation NVARCHAR(500),
+                    ThreadSize NVARCHAR(50),
+                    MaterialGroup NVARCHAR(20),
+                    Coating NVARCHAR(20),
+                    SteelGrade NVARCHAR(50),
+                    ThreadDiameter FLOAT,
+                    ThreadPitch NVARCHAR(20)
+                )
+            """)
+            self.cursor.execute("""
+                IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'ProductParameters')
+                CREATE TABLE ProductParameters (
+                    ID INT IDENTITY(1,1) PRIMARY KEY,
+                    GOST_Number NVARCHAR(50),
+                    ThreadDiameter FLOAT,
+                    ThreadPitch NVARCHAR(20),
+                    PitchType NVARCHAR(10),
+                    MaterialGroup NVARCHAR(20),
+                    Parameter_da_min FLOAT,
+                    Parameter_da_max FLOAT,
+                    Parameter_dw_min FLOAT,
+                    Parameter_e_min FLOAT,
+                    Parameter_m_max FLOAT,
+                    Parameter_m_min FLOAT,
+                    Parameter_m_prime_min FLOAT,
+                    Parameter_S_nom_max FLOAT,
+                    Parameter_S_min FLOAT,
+                    TheoreticalMass FLOAT
+                )
+            """)
+            self.conn.commit()
+            logger.info("Tables ensured OK")
+        except pyodbc.Error as e:
+            logger.warning("ensure_tables error: %s", str(e))
     
     def insert_designations(self, designations: List[Dict], 
                             clear_existing: bool = True) -> int:

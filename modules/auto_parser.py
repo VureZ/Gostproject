@@ -47,6 +47,7 @@ class AutoParser:
     def parse_pdf(self, pdf_path: str) -> ParsedGostData:
         """Главный метод: парсит PDF и возвращает извлечённые данные."""
         logger.info(f"Парсинг PDF: {pdf_path}")
+        self.data = ParsedGostData()  # Сброс данных при каждом вызове
         self._pdf_path = os.path.abspath(pdf_path)
         self._doc = fitz.open(pdf_path)
 
@@ -99,16 +100,23 @@ class AutoParser:
     # Поиск номера ГОСТ
     # ================================================================
     def _find_gost_number(self, text: str) -> str:
+        # Берём только первые 2 страницы для поиска (обложка + преамбула)
+        # Пропускаем строки после "Заменен" и "замен" чтобы не путать с заменяющим ГОСТ
+        search_text = text
+        # Отсекаем текст после "Заменен:" чтобы не брать номер заменяющего ГОСТ
+        for marker in ['Заменен:', 'заменен:', 'ЗАМЕНЕН']:
+            idx = search_text.find(marker)
+            if idx > 0:
+                search_text = search_text[:idx]
         patterns = [
             r'ГОСТ\s+ISO\s+([\d]+[\s—\-–]+\d+)',
             r'ГОСТ\s+([\d]+[\s—\-–]+\d+)',
         ]
         for pat in patterns:
-            m = re.search(pat, text, re.IGNORECASE)
+            m = re.search(pat, search_text, re.IGNORECASE)
             if m:
                 num = m.group(1).strip()
                 num = re.sub(r'[\s—–]+', '-', num)
-                # Для ISO стандартов добавляем префикс
                 if 'ISO' in pat:
                     return 'ISO ' + num
                 return num
@@ -118,17 +126,22 @@ class AutoParser:
     # Поиск типа изделия
     # ================================================================
     def _find_product_name(self, text: str) -> str:
-        text_lower = text.lower()
-        if 'гайк' in text_lower:
-            return "Гайка"
-        if 'болт' in text_lower:
-            return "Болт"
-        if 'винт' in text_lower:
-            return "Винт"
-        if 'шпильк' in text_lower:
-            return "Шпилька"
-        if 'шайб' in text_lower:
-            return "Шайба"
+        # Ищем на первых двух страницах (титульный лист + описание)
+        pages_to_check = self.data.raw_pages_text[:2] if self.data.raw_pages_text else [text]
+
+        product_keywords = [
+            ('шпильк', 'Шпилька'),
+            ('шайб', 'Шайба'),
+            ('винт', 'Винт'),
+            ('болт', 'Болт'),
+            ('гайк', 'Гайка'),
+        ]
+
+        for page in pages_to_check:
+            page_lower = page.lower()
+            for keyword, name in product_keywords:
+                if keyword in page_lower:
+                    return name
         return "Изделие"
 
     # ================================================================
@@ -166,20 +179,34 @@ class AutoParser:
             return False
 
         # Собираем диаметры (числа после маркера)
+        # Могут быть по одному на строку или несколько: "(1) (1,4) 1,6"
         diameters = []
         idx = start + 1
         while idx < len(lines):
             line = lines[idx].strip()
-            clean = re.sub(r'[()а-яa-zА-ЯA-Z]', '', line, flags=re.IGNORECASE).strip()
-            clean = re.sub(r'^[МмMm]\s*', '', clean).replace(',', '.')
-            if re.match(r'^\d+(\.\d+)?$', clean) and clean:
-                diameters.append(clean)
+            if not line or 'езьб' in line.lower():
                 idx += 1
-            elif line == '' or 'езьб' in line.lower():
-                idx += 1
-            else:
+                continue
+            # Разбиваем строку на токены
+            tokens = re.findall(r'\(?\s*[МмMm]?\s*[\d]+(?:[.,]\d+)?\s*\)?[а-яa-z]?', line)
+            if not tokens:
+                break  # текстовый маркер — конец диаметров
+            found_any = False
+            for token in tokens:
+                clean = re.sub(r'[()а-яa-zА-ЯA-Z]', '', token).strip()
+                clean = re.sub(r'^[МмMm]\s*', '', clean).replace(',', '.')
+                if re.match(r'^\d+(\.\d+)?$', clean) and clean:
+                    diameters.append(clean)
+                    found_any = True
+            if not found_any:
                 break
-        if len(diameters) < 3:
+            idx += 1
+        if len(diameters) < 8:
+            return False
+        # Проверяем что диаметры — возрастающая последовательность
+        vals = [float(d) for d in diameters]
+        increasing = sum(1 for i in range(len(vals)-1) if vals[i] < vals[i+1])
+        if increasing < len(vals) * 0.7:  # минимум 70% пар возрастают
             return False
         self.data.diameters = diameters
         n = len(diameters)
@@ -224,60 +251,6 @@ class AutoParser:
         self._extract_rows_by_headers(rows, diam_x_positions, diameters)
 
         return len(diameters) >= 3
-        """Пытается найти и разобрать таблицу размеров на странице.
-        Возвращает True если таблица найдена."""
-        lines = page_text.split('\n')
-        lines = [l.strip() for l in lines]
-
-        # Ищем маркер "Номинальный диаметр" или "резьбы d" или "Резьба D"
-        diameter_start = None
-        for i, line in enumerate(lines):
-            low = line.lower()
-            if 'оминальн' in line and 'диаметр' in low:
-                diameter_start = i
-                break
-            if 'езьб' in low and ('d' in low or 'D' in line):
-                diameter_start = i
-                break
-
-        if diameter_start is None:
-            return False
-
-        # Собираем числа после маркера — это диаметры
-        # Формат 1: числа по одному: "3", "4", "(14)", ...
-        # Формат 2: с буквой М: "М1,6", "М2", "(М3,5)а", ...
-        diameters = []
-        idx = diameter_start + 1
-        while idx < len(lines):
-            line = lines[idx].strip()
-            # Убираем скобки, буквы после скобок: (М3,5)а -> М3,5
-            clean = re.sub(r'[()а-яa-z]', '', line, flags=re.IGNORECASE).strip()
-            # Убираем "М" или "M" перед числом
-            clean = re.sub(r'^[МмMm]\s*', '', clean)
-            clean = clean.replace(',', '.')
-            if re.match(r'^\d+(\.\d+)?$', clean) and clean:
-                diameters.append(clean)
-                idx += 1
-            elif line == '' or 'езьбы' in line.lower() or 'езьба' in line.lower():
-                idx += 1  # пропускаем пустые и "резьбы d"
-            else:
-                break  # текстовый маркер — конец диаметров
-
-        if len(diameters) < 3:
-            return False
-
-        self.data.diameters = diameters
-        n = len(diameters)  # количество столбцов таблицы
-
-        # Теперь разбираем оставшиеся секции таблицы.
-        # Каждая секция: текстовый заголовок, затем числа (по n штук).
-        # Секции: крупный шаг, мелкий шаг, S, e, da_min, da_max, dw, m и т.д.
-        sections = self._parse_table_sections(lines, idx, n)
-
-        # Распределяем секции по полям
-        self._assign_sections(sections, diameters)
-
-        return True
 
     def _parse_table_sections(self, lines, start_idx, expected_count):
         """Парсит секции таблицы: заголовок + числа."""
@@ -340,7 +313,8 @@ class AutoParser:
                 self._map_pitches_coarse(diameters, nums)
             elif 'мелк' in h:
                 self._map_pitches_fine(diameters, nums)
-            elif 'ключ' in h or ('размер' in h and 's' in h.lower()):
+            elif 'ключ' in h or ('размер' in h and 's' in h.lower()) or \
+                 (h.startswith('s ') and 'номин' in h):
                 self._map_to_dict(diameters, nums, self.data.wrench_sizes)
             elif 'описанн' in h or ('е' in h and 'менее' in h and 'dа' not in h and 'dw' not in h):
                 self._map_to_dict_float(diameters, nums, self.data.e_min_values)
@@ -588,7 +562,12 @@ class AutoParser:
         if len(nums) <= n:
             for i, val in enumerate(nums):
                 if i < n and val and val != '0':
-                    self.data.coarse_pitches[diameters[i]] = val
+                    # Проверка: шаг резьбы всегда меньше диаметра
+                    try:
+                        if float(val) < float(diameters[i]):
+                            self.data.coarse_pitches[diameters[i]] = val
+                    except ValueError:
+                        self.data.coarse_pitches[diameters[i]] = val
 
     def _map_pitches_fine(self, diameters, nums):
         """Маппинг мелких шагов. Их значительно меньше."""

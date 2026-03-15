@@ -53,7 +53,15 @@ class DesignationGenerator:
         """Generate designations with coarse pitch."""
         pitch = self.spec.coarse_pitches.get(diameter, "")
         if not pitch and self.spec.coarse_pitches:
-            return  # no coarse pitch for this diameter
+            # Проверяем: если для большинства диаметров крупный шаг есть,
+            # а для этого нет — скорее всего парсер не нашёл.
+            # Генерируем всё равно (крупный шаг не указывается в обозначении).
+            # Пропускаем только если у диаметра есть мелкий шаг (значит крупного реально нет)
+            has_fine = diameter in self.spec.fine_pitches and self.spec.fine_pitches[diameter]
+            has_most_coarse = len(self.spec.coarse_pitches) > len(self.spec.diameters) * 0.5
+            if has_fine and not has_most_coarse:
+                return  # Действительно нет крупного шага
+            # Иначе продолжаем генерацию (pitch будет пустым)
 
         for group, stype in self.spec.material_groups.items():
             # Список марок стали для данной группы (может быть пустой)
